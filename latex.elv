@@ -1,12 +1,32 @@
+use string
+
 libs = []
 preamble = []
 document = []
-doc_class = '\documentclass[11pt]{article}'
-doc_title = $false
+doc-class = '\documentclass[11pt]{article}'
+doc-title = $false
+
+fn -escape [@lines]{
+    for line $lines {
+        replaces '%' '\%' $line |\
+            replaces '&' '\&' (all) |\
+            replaces '$' '\$' (all) |\
+            replaces '#' '\#' (all)
+        # replaces '_' '\_' (all) |\
+        # replaces '{' '\{' (all) |\
+        # replaces '|' '\}' (all)
+    }
+}
 
 # Adds each item to the docuemnt
 fn -add [@lines]{
-    document = [$@document $@lines]
+    new-document = [$@document $@lines]
+    document = $new-document
+}
+
+fn -add-preamble [@lines]{
+    new-preamble = [$@preamble $@lines]
+    preamble = $new-preamble
 }
 
 # Creates an environment around the given contents
@@ -38,13 +58,13 @@ fn -cmd [&opts=[] &args=[] command]{
 # Adds a line to the document with a newline
 fn add [@lines]{
     for line $lines {
-        -add $line' \\'
+        -add (-escape $line)' \\'
     }
 }
 
 # Sets the document class type
 fn documentclass [&opts=[] class]{
-    doc_class = (-cmd &opts=$args &args=[$class] documentclass)
+    doc-class = (-cmd &opts=$args &args=[$class] documentclass)
 }
 
 # Imports a package
@@ -54,22 +74,22 @@ fn usepackage [&opts=[] package]{
 
 # Adds a section
 fn section [section]{
-    -add '\section*{'$section'}'
+    -add '\section*{'(-escape $section)'}'
 }
 
 # Adds a subsection
 fn subsection [section]{
-    -add '\subsection*{'$section'}'
+    -add '\subsection*{'(-escape $section)'}'
 }
 
 # Adds a subsubsection
 fn subsubsection [section]{
-    -add '\subsubsection*{'$section'}'
+    -add '\subsubsection*{'(-escape $section)'}'
 }
 
 # Sets the document title
 fn title [title]{
-    doc_title = $title
+    doc-title = $title
 }
 
 # Adds a page break
@@ -80,37 +100,85 @@ fn newpage []{
 # Numbers the given items
 fn enumerate [@items]{
     for item $items {
-        put '  \item '$item
+        if (has-prefix $item '\subitem') {
+            put $item
+        } else {
+            put '  \item '(-escape $item)
+        }
     } | -env enumerate (all) | -add (all)
 }
 
 # Creates a centered table with the given contents (provided as a 2D array)
-fn table [&width=$false table_contents]{
+fn table [&width=$false &borders=$false table-contents]{
     if (not $width) {
         # Get table width
         width = 1
-        for row $table_contents {
+        for row $table-contents {
             if (> (count $row) $width) {
                 width = (count $row)
             }
         }
     }
-    for row $table_contents {
-        put '  '(joins ' & ' $row)' \\'
-    } | -env &args=[' '(joins ' ' [(repeat $width c)])' '] tabular (all) | -env center (all) | -add (all)
+    col-sep = ' '
+    if $borders {
+        col-sep = '|'
+    }
+    for row $table-contents {
+        if (eq $row ['\hline']) {
+            put '\hline'
+        } else {
+            put '  '(joins ' & ' $row)' \\'
+        }
+    } | -env &args=[' '(joins $col-sep [(repeat $width c)])' '] tabular (all) | -env center (all) | -add (all)
 }
+
+# Adds in boilerplate for importing SVG files
+fn enable-svg []{
+    preamble = [$@preamble
+                '\newcommand{\executeiffilenewer}[3]{%'
+                '\ifnum\pdfstrcmp{\pdffilemoddate{#1}}%'
+                '{\pdffilemoddate{#2}}>0%'
+                '{\immediate\write18{#3}}\fi%'
+                '}'
+                '\newcommand{\includesvg}[1]{%'
+                '\executeiffilenewer{#1.svg}{#1.pdf}%'
+                '{inkscape -z -D --file=#1.svg %'
+                '--export-pdf=#1.pdf --export-latex}%'
+                '\input{#1.pdf_tex}%'
+                '}']
+}
+
+fn includesvg [&width='' name]{
+    put '\def\svgwidth{'$width'\textwidth}\includesvg{'$name'}'
+}
+
+fn verbatim [line]{
+    put '\begin{verbatim}'$line'\end{verbatim}'
+}
+
+fn includegraphics [&width=$false &height=$false image]{
+    opts = []
+    if $width {
+        opts = ['width='$width]
+    }
+    if $height {
+        opts= [$@opts 'height='$height]
+    }
+    -cmd &opts=$opts &args=[$image] includegraphics
+}
+
 
 # Builds and prints the document
 fn build []{
-    echo $doc_class
+    echo $doc-class
     for lib $libs {
         echo $lib
     }
     for line $preamble {
         echo $line
     }
-    if $doc_title {
-        document = ['\title{\textbf{'$doc_title'}}'
+    if $doc-title {
+        document = ['\title{\textbf{'$doc-title'}}'
                     '\date{}'
                     '\maketitle'
                     $@document]
@@ -125,11 +193,51 @@ fn write [filename]{
     build > $filename
 }
 
+# Writes the document to a file
+fn write-pdf [&compress=$false filename]{
+    # Check if pdflatex is installed
+    if (not (has-external pdflatex)) {
+        fail 'Could not find pdflatex'
+    }
+    # Check if ghostscript is installed
+    if (and $compress (not (has-external gsdfjlks))) {
+        fail 'Could not find gs'
+    }
+    filename = (string:rstrip '.pdf' $filename)
+    # Make temp dir for intermediate files
+    temp = (mktemp -d latex-XXXXX)
+    try {
+        build > $temp'/'$filename'.tex'
+        pdflatex -output-directory $temp $temp'/'$filename'.tex'
+        if $compress {
+            gs-args = ['-dSAFER'
+                       '-dBATCH'
+                       '-dPrinted=false'
+                       '-dNOPAUSE'
+                       '-dNOCACHE'
+                       '-sDEVICE=pdfwrite'
+                       '-sColorConversionStrategy=/LeaveColorUnchanged'
+                       '-dAutoFilterColorImages=true'
+                       '-dAutoFilterGrayImages=true'
+                       '-dDownsampleMonoImages=true'
+                       '-dDownsampleGrayIma ges=true'
+                       '-dDownsampleColorImages=true'
+                       '-dPDFSETTINGS=/printer']
+            gs $@gs-args '-sOutputFile='$filename'.pdf' $temp/$filename'.pdf'
+        } else {
+            mv $temp/$filename'.pdf' .
+        }
+    } finally {
+        # Clean up intermediate files
+        rm -rf $temp
+    }
+}
+
 # Clears the document
 fn clear []{
     libs = []
     preamble = []
     document = []
-    doc_class = '\documentclass[11pt]{article}'
-    doc_title = $false
+    doc-class = '\documentclass[11pt]{article}'
+    doc-title = $false
 }
