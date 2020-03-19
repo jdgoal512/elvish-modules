@@ -1,8 +1,13 @@
-fn read_csv [&field=',' &use_headers=$true filename]{
-    lines = [(cat $filename | each [line]{ put [(splits $field $line)] })]
+fn read-csv [&field=',' &use-headers=$true filename]{
+    lines = [(cat $filename | \
+              each [line]{
+                if (not-eq $line '') {
+                    put [(splits $field $line)]
+                }
+            })]
     data = [&]
     headers = [(range (count $lines[0]))]
-    if $use_headers {
+    if $use-headers {
         headers = $lines[0]
         lines = $lines[1:]
     }

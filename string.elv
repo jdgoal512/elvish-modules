@@ -1,16 +1,40 @@
-fn lpad [&sep=" " chars @rest]{
+use math
+fn lpad [&pad=' ' chars @rest]{
     for line $rest {
-        pad_length = (- $chars (count $line))
-        put (joins "" [(repeat $pad_length $sep)])$line
+        pad-length = (- $chars (count $line))
+        put (joins "" [(repeat (math:floor (/ $pad-length (count $pad))) $pad)])$line
     }
 }
 
-fn rpad [&sep=" " chars @rest]{
+fn rpad [&pad=' ' chars @rest]{
     for line $rest {
-        pad_length = (- $chars (count $line))
-        put $line(joins "" [(repeat $pad_length $sep)])
+        pad-length = (- $chars (count $line))
+        put $line(joins "" [(repeat (math:floor (/ $pad-length (count $pad))) $pad)])
     }
 }
+
+fn lstrip [prefix @rest]{
+    for line $rest {
+        while (has-prefix $line $prefix) {
+            line = $line[(count $prefix):]
+        }
+        put $line
+    }
+}
+
+fn rstrip [suffix @rest]{
+    for line $rest {
+        while (has-suffix $line $suffix) {
+            line = $line[:-(count $suffix)]
+        }
+        put $line
+    }
+}
+
+fn strip [text @rest]{
+    lstrip $text (rstrip $text $@rest)
+}
+
 
 fn reverse [@strings]{
     for line $strings {
