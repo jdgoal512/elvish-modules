@@ -4,7 +4,6 @@ libs = []
 preamble = []
 document = []
 doc-class = '\documentclass[11pt]{article}'
-doc-title = $false
 
 fn -escape [@lines]{
     for line $lines {
@@ -89,7 +88,10 @@ fn subsubsection [section]{
 
 # Sets the document title
 fn title [title]{
-    doc-title = $title
+    document = ['\title{\textbf{'$title'}}'
+                '\date{}'
+                '\maketitle'
+                $@document]
 }
 
 # Adds a page break
@@ -109,7 +111,12 @@ fn enumerate [@items]{
 }
 
 # Creates a centered table with the given contents (provided as a 2D array)
-fn table [&width=$false &borders=$false table-contents]{
+fn table [&width=$false &align='center' &borders=$false table-contents]{
+    if (eq $align left) {
+        align = 'flushleft'
+    } elif (eq $align right) {
+        align = 'flushright'
+    }
     if (not $width) {
         # Get table width
         width = 1
@@ -129,7 +136,7 @@ fn table [&width=$false &borders=$false table-contents]{
         } else {
             put '  '(joins ' & ' $row)' \\'
         }
-    } | -env &args=[' '(joins $col-sep [(repeat $width c)])' '] tabular (all) | -env center (all) | -add (all)
+    } | -env &args=[' '(joins $col-sep [(repeat $width c)])' '] tabular (all) | -env $align (all) | -add (all)
 }
 
 # Adds in boilerplate for importing SVG files
@@ -152,6 +159,10 @@ fn includesvg [&width='' name]{
     put '\def\svgwidth{'$width'\textwidth}\includesvg{'$name'}'
 }
 
+fn include-pdf [&width='' &page='1' pdf-file]{
+    put '\includegraphics[width='$width'\textwidth,page='$page']{'$pdf-file'}'
+}
+
 fn verbatim [line]{
     put '\begin{verbatim}'$line'\end{verbatim}'
 }
@@ -159,7 +170,7 @@ fn verbatim [line]{
 fn includegraphics [&width=$false &height=$false image]{
     opts = []
     if $width {
-        opts = ['width='$width]
+        opts = ['width='$width'\textwidth']
     }
     if $height {
         opts= [$@opts 'height='$height]
@@ -176,12 +187,6 @@ fn build []{
     }
     for line $preamble {
         echo $line
-    }
-    if $doc-title {
-        document = ['\title{\textbf{'$doc-title'}}'
-                    '\date{}'
-                    '\maketitle'
-                    $@document]
     }
     for line [(-env document $@document)] {
         echo $line
@@ -200,7 +205,7 @@ fn write-pdf [&compress=$false filename]{
         fail 'Could not find pdflatex'
     }
     # Check if ghostscript is installed
-    if (and $compress (not (has-external gsdfjlks))) {
+    if (and $compress (not (has-external gs))) {
         fail 'Could not find gs'
     }
     filename = (string:rstrip '.pdf' $filename)
@@ -239,5 +244,4 @@ fn clear []{
     preamble = []
     document = []
     doc-class = '\documentclass[11pt]{article}'
-    doc-title = $false
 }
