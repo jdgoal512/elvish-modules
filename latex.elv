@@ -1,4 +1,5 @@
 use string
+use str
 
 libs = []
 preamble = []
@@ -7,13 +8,13 @@ doc-class = '\documentclass[11pt]{article}'
 
 fn -escape [@lines]{
     for line $lines {
-        replaces '%' '\%' $line |\
-            replaces '&' '\&' (all) |\
-            replaces '$' '\$' (all) |\
-            replaces '#' '\#' (all)
-        # replaces '_' '\_' (all) |\
-        # replaces '{' '\{' (all) |\
-        # replaces '|' '\}' (all)
+        str:replace '%' '\%' $line | ^
+            str:replace '&' '\&' (all) | ^
+            str:replace '#' '\#' (all)
+        # str:replace '$' '\$' (all) | ^
+        # str:replace '_' '\_' (all) | ^
+        # str:replace '{' '\{' (all) | ^
+        # str:replace '|' '\}' (all)
     }
 }
 
@@ -33,7 +34,7 @@ fn -env [&args=[] tag @contents]{
     if (eq $args []) {
         put '\begin{'$tag'}'
     } else {
-        put '\begin{'$tag'}{'(joins ', ' $args)'}'
+        put '\begin{'$tag'}{'(str:join ', ' $args)'}'
     }
     for line $contents {
         put $line
@@ -45,11 +46,11 @@ fn -env [&args=[] tag @contents]{
 fn -cmd [&opts=[] &args=[] command]{
     cmd = '\'$command
     if (not (eq $opts [])) {
-        cmd = $cmd'['(joins ', ' $opts)']'
+        cmd = $cmd'['(str:join ', ' $opts)']'
     }
     cmd = $cmd'{'
     if (not (eq $args [])) {
-        cmd = $cmd(joins ', ' $args)
+        cmd = $cmd(str:join ', ' $args)
     }
     put $cmd'}'
 }
@@ -111,7 +112,7 @@ fn enumerate [@items]{
 }
 
 # Creates a centered table with the given contents (provided as a 2D array)
-fn table [&width=$false &align='center' &borders=$false table-contents]{
+fn table [&width=$false &align='center' &borders=$false &title='' table-contents]{
     if (eq $align left) {
         align = 'flushleft'
     } elif (eq $align right) {
@@ -130,13 +131,24 @@ fn table [&width=$false &align='center' &borders=$false table-contents]{
     if $borders {
         col-sep = '|'
     }
-    for row $table-contents {
-        if (eq $row ['\hline']) {
-            put '\hline'
-        } else {
-            put '  '(joins ' & ' $row)' \\'
+    {
+        if (not-eq $title '') {
+           put '  \multicolumn{'$width'}{c}{'$title'} \\'
         }
-    } | -env &args=[' '(joins $col-sep [(repeat $width c)])' '] tabular (all) | -env $align (all) | -add (all)
+        for row $table-contents {
+            if (eq $row ['\hline']) {
+                put '\hline'
+            } elif (str:contains $row[0] 'multicolumn') {
+                if (str:has-suffix $row[0] '\\') {
+                    put $row[0]
+                } else {
+                    put $row[0]' \\'
+                }
+            } else {
+                put '  '(str:join ' & ' $row)' \\'
+            }
+        }
+    } | -env &args=[' '(str:join $col-sep [(repeat $width c)])' '] tabular (all) | -env $align (all) | -add (all)
 }
 
 # Adds in boilerplate for importing SVG files

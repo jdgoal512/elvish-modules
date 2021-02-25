@@ -97,7 +97,7 @@ fn getopts [@args]{
         items = [(list:zip $args [(drop 1 $args) $false])]
         i = 0
         while (< $i (count $items)) {
-            current next = (explode $items[$i])
+            current next = (all $items[$i])
             if (and $next (-check-if-opt $current)) {
                 opts[(-remove-dashes $current)] = $next
                 i = (+ $i 2)

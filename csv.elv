@@ -1,8 +1,9 @@
+use str
 fn read-csv [&field=',' &use-headers=$true filename]{
-    lines = [(cat $filename | \
+    lines = [(cat $filename | ^
               each [line]{
                 if (not-eq $line '') {
-                    put [(splits $field $line)]
+                    put [(str:split $field $line)]
                 }
             })]
     data = [&]
