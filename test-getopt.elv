@@ -1,9 +1,9 @@
 #!/usr/bin/env elvish
 use getopt
 
-fn testgroup []{
-    testnumber = 1
-    fn check-parm [received expected name]{
+fn testgroup {
+    var testnumber = 1
+    fn check-parm {|received expected name|
         if (eq $received $expected) {
             echo (styled $name" PASSED" green)
         } else {
@@ -14,9 +14,9 @@ fn testgroup []{
             echo $received
         }
     }
-    put [opts expected-opts flags expected-flags args expected-args]{
+    put {|opts expected-opts flags expected-flags args expected-args|
         echo (styled "Test "$testnumber bold)
-        testnumber = (+ $testnumber 1)
+        set testnumber = (+ $testnumber 1)
         if (not-eq $opts [&]) {
             for opt [(keys $opts)] {
                 getopt:add-opt $opt $opts[$opt]
@@ -27,7 +27,7 @@ fn testgroup []{
                 getopt:add-flag $flag
             }
         }
-        parms = (getopt:getopts $@args)
+        var parms = (getopt:getopts $@args)
         put $parms
         check-parm $parms[opts] $expected-opts "OPTS"
         check-parm $parms[flags] $expected-flags "FLAGS"
@@ -36,7 +36,7 @@ fn testgroup []{
     }
 }
 
-test~ = (testgroup)
+var test~ = (testgroup)
 
 test [&] [&] [] [&] [] []
 test [&] [&] [f] [&f=$false] [] []

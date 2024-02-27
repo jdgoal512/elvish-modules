@@ -103,7 +103,7 @@ fn newpage []{
 # Numbers the given items
 fn enumerate [@items]{
     for item $items {
-        if (has-prefix $item '\subitem') {
+        if (str:has-prefix $item '\subitem') {
             put $item
         } else {
             put '  \item '(-escape $item)

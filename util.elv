@@ -1,15 +1,15 @@
 use str
-fn unbuffer []{
-    line = (read-upto "\n")
+fn unbuffer {
+    var line = (read-upto "\n")
     while (not-eq $line "") {
         str:trim-right $line "\n"
-        line = (read-upto "\n")
+        set line = (read-upto "\n")
     }
 }
 
-fn compress-pdf [pdf-file]{
-    temp = (tempfile)
-    gs-args = ['-dSAFER'
+fn compress-pdf {|pdf-file|
+    var temp = (tempfile)
+    var gs-args = ['-dSAFER'
                '-dBATCH'
                '-dPrinted=false'
                '-dNOPAUSE'
