@@ -17,4 +17,4 @@ fn -pass-completions {|arg &suffix=''|
   -password-files | each {|host| put $user-given$host } | comp:decorate &suffix=$suffix
 }
 
-edit:completion:arg-completer[pass]  = (comp:sequence &opts=$pass-opts [$-pass-completions~])
+set edit:completion:arg-completer[pass]  = (comp:sequence &opts=$pass-opts [$-pass-completions~])
